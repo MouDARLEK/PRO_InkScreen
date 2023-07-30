@@ -7,5 +7,8 @@ extern void EPD_Test(void);
 extern void EPD_GlobalInit(void);
 extern void EPD_GlobalTest(void);
 
+extern void EPD_ChineseInit(void);
+extern void EPD_ChineseTest(void);
+
 
 #endif

@@ -12,6 +12,9 @@ void setup()
   delay(1000);
   EPD_Init();
   EPD_Test();
+  delay(1000);
+  EPD_ChineseInit();
+  EPD_ChineseTest();
 
 }
 

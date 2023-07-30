@@ -1,7 +1,7 @@
 #include "epd.h"
 #include "Arduino.h"
 
-//墨水屏驱动类 黑白速刷
+//墨水屏驱动类 黑白局刷+速刷
 #define ENABLE_GxEPD2_GFX 0
 #include <GxEPD2_BW.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
@@ -16,18 +16,41 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 
 SPIClass hspi(HSPI);
 
-//三色全局刷
+//三色全局更新
 #include<EPD_Driver.h>
 #include "resources/resources.h"
 #define SCREEN 266
 EPD_Driver epdGlobal(eScreen_EPD_266, boardESP32DevKitC_EXT3);
 
 //中文字库
-// #include <U8g2_for_Adafruit_GFX.h>
-// #include "gb2312.c"
+#include <U8g2_for_Adafruit_GFX.h>
+#include "gb2312.c"
+
+U8G2_FOR_ADAFRUIT_GFX u8g2Fonts;
+extern const uint8_t chinese_gb2312[253023] U8G2_FONT_SECTION("chinese_gb2312");
 
 
+extern void EPD_ChineseInit(void)
+{
+  u8g2Fonts.begin(display);                        // 将u8g2过程连接到Adafruit GFX
+  u8g2Fonts.setFontMode(1);                        // 使用u8g2透明模式（这是默认设置）
+  u8g2Fonts.setFontDirection(0);                   // 从左到右（这是默认设置）
+  u8g2Fonts.setForegroundColor(GxEPD_BLACK);             // 设置前景色
+  u8g2Fonts.setBackgroundColor(GxEPD_WHITE);             // 设置背景色
+  u8g2Fonts.setFont(chinese_gb2312);
 
+}
+
+extern void EPD_ChineseTest(void)
+{
+  char *chineseStr = "荒风落日，旷野无声";
+  int strLength = u8g2Fonts.getUTF8Width(chineseStr);
+  uint16_t strX = ((display.width() - strLength) / 2);   //使句子居中
+
+  u8g2Fonts.drawUTF8(strX, 20, chineseStr);
+  display.nextPage();
+
+}
 
 extern void EPD_GlobalInit(void)
 {
