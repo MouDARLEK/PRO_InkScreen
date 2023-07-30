@@ -1,12 +1,11 @@
-#define ENABLE_GxEPD2_GFX 0
-
 #include "epd.h"
 #include "Arduino.h"
 
+//墨水屏驱动类 黑白速刷
+#define ENABLE_GxEPD2_GFX 0
 #include <GxEPD2_BW.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 
-//墨水屏驱动类
 #define GxEPD2_DISPLAY_CLASS GxEPD2_BW
 #define GxEPD2_DRIVER_CLASS GxEPD2_260
 
@@ -16,6 +15,41 @@
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(/*CS=*/ 32, /*DC=*/ 26, /*RST=*/ 25, /*BUSY=*/ 27));
 
 SPIClass hspi(HSPI);
+
+//三色全局刷
+#include<EPD_Driver.h>
+#include "resources/resources.h"
+#define SCREEN 266
+EPD_Driver epdGlobal(eScreen_EPD_266, boardESP32DevKitC_EXT3);
+
+//中文字库
+// #include <U8g2_for_Adafruit_GFX.h>
+// #include "gb2312.c"
+
+
+
+
+extern void EPD_GlobalInit(void)
+{
+  // EPD_Driver epdGlobal(eScreen_EPD_266, boardESP32DevKitC_EXT3);
+  epdGlobal.COG_initial();
+  // epdGlobal.globalUpdate(BW_monoBuffer, BW_0x00Buffer);
+  epdGlobal.globalUpdate(IMG_BW_BUFFER, IMG_RED_BUFFER);
+  // epdGlobal.globalUpdate(BWR_blackBuffer, BWR_redBuffer);
+  // // Turn off CoG
+  epdGlobal.COG_powerOff();
+
+}
+
+extern void EPD_GlobalTest(void)
+{
+  // epdGlobal.globalUpdate(BWR_blackBuffer, BWR_redBuffer);
+  // // Turn off CoG
+  // epdGlobal.COG_powerOff();
+}
+
+
+
 
 
 extern void EPD_Init(void)
@@ -42,7 +76,7 @@ extern void EPD_Test(void)
   display.setFullWindow();
  
 
-  display.firstPage();  //显示初始化
+  display.firstPage();  //显示BUF初始化
   do
   {
     display.fillScreen(GxEPD_WHITE);

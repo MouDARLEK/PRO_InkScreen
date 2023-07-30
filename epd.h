@@ -4,5 +4,8 @@
 extern void EPD_Init(void);
 extern void EPD_Test(void);
 
+extern void EPD_GlobalInit(void);
+extern void EPD_GlobalTest(void);
+
 
 #endif

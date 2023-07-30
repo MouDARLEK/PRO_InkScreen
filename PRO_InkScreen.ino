@@ -7,6 +7,9 @@ void setup()
 {
   LED_Init();
   Serial.begin(115200);
+
+  EPD_GlobalInit();
+  delay(1000);
   EPD_Init();
   EPD_Test();
 
