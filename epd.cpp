@@ -1,5 +1,6 @@
 #include "epd.h"
 #include "Arduino.h"
+#include "board.h"
 
 //墨水屏驱动类 黑白局刷+速刷
 #define ENABLE_GxEPD2_GFX 0
@@ -16,7 +17,7 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 
 SPIClass hspi(HSPI);
 
-//三色全局更新
+//墨水屏驱动类 三色全局更新
 #include<EPD_Driver.h>
 #include "resources/resources.h"
 #define SCREEN 266
@@ -47,7 +48,7 @@ extern void EPD_ChineseTest(void)
   int strLength = u8g2Fonts.getUTF8Width(chineseStr);
   uint16_t strX = ((display.width() - strLength) / 2);   //使句子居中
 
-  u8g2Fonts.drawUTF8(strX, 20, chineseStr);
+  u8g2Fonts.drawUTF8(strX, 40, chineseStr);
   display.nextPage();
 
 }
@@ -56,10 +57,14 @@ extern void EPD_GlobalInit(void)
 {
   // EPD_Driver epdGlobal(eScreen_EPD_266, boardESP32DevKitC_EXT3);
   epdGlobal.COG_initial();
-  // epdGlobal.globalUpdate(BW_monoBuffer, BW_0x00Buffer);
-  epdGlobal.globalUpdate(IMG_BW_BUFFER, IMG_RED_BUFFER);
-  // epdGlobal.globalUpdate(BWR_blackBuffer, BWR_redBuffer);
-  // // Turn off CoG
+
+
+  // epdGlobal.globalUpdate(IMG_BW_BUFFER, IMG_RED_BUFFER);
+  // delay(5);
+  epdGlobal.globalUpdate(IMG_BW1_BUFFER, IMG_RED1_BUFFER);
+  delay(5);
+  // epdGlobal.globalUpdate(IMG_RED2_BUFFER, IMG_BW2_BUFFER);
+  // Turn off CoG
   epdGlobal.COG_powerOff();
 
 }
@@ -88,7 +93,7 @@ extern void EPD_Init(void)
 const char epdTestStr[] = "Time and tide wait for no man.";
 extern void EPD_Test(void)
 {
-  display.setRotation(1);
+  display.setRotation(3);
   display.setFont(&FreeMonoBold9pt7b);
   display.setTextColor(GxEPD_BLACK);
   int16_t tbx, tby; uint16_t tbw, tbh;
@@ -96,9 +101,9 @@ extern void EPD_Test(void)
   // center bounding box by transposition of origin:
   uint16_t x = ((display.width() - tbw) / 2) - tbx;
   uint16_t y = ((display.height() - tbh) / 2) - tby;
+  
   display.setFullWindow();
- 
-
+  // display.setPartialWindow(0,0,100,266);
   display.firstPage();  //显示BUF初始化
   do
   {
@@ -107,20 +112,22 @@ extern void EPD_Test(void)
     display.print(epdTestStr);
   }
   while (display.nextPage());//发送buffer
-
+  display.drawInvertedBitmap(x, y + 30,  ICON_SUNSHIN, 45, 45, GxEPD_BLACK);
   
-  int i = 0;
-  for(i = 0; i <= 266; i++)
-  {
-    display.drawPixel(10, i, GxEPD_BLACK);
-    display.drawPixel(11, i, GxEPD_BLACK);
-  }
-  display.nextPage();
-  
-
-
-
-
 }
+//电压显示
+extern void EPD_ShowVoltage(void)
+{
+  display.setPartialWindow(0, 0, display.width(), display.height());
+  String voltage = String(POWER_Check()) + " V";
 
+  display.setPartialWindow(140, 113, 50, 50);
+  display.fillScreen(GxEPD_WHITE);
+  display.nextPage();
+
+  u8g2Fonts.setCursor(140, 113 +20);
+ 
+  u8g2Fonts.print(voltage);
+  display.nextPage();
+}
 

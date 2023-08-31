@@ -10,5 +10,6 @@ extern void EPD_GlobalTest(void);
 extern void EPD_ChineseInit(void);
 extern void EPD_ChineseTest(void);
 
+extern void EPD_ShowVoltage(void);
 
 #endif
