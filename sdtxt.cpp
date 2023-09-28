@@ -1,206 +1,351 @@
-#include "sdtxt.h"
-#include "Arduino.h"
-#include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+#include "sdtxt.h"
+#include <LittleFS.h>
+#include "FS.h"
+
+#include "epd.h"
 
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
-    Serial.printf("Listing directory: %s\n", dirname);
+// static bool fsOK;
+#define FORMAT_LITTLEFS_IF_FAILED true
 
-    File root = fs.open(dirname);
-    if(!root){
-        Serial.println("Failed to open directory");
-        return;
-    }
-    if(!root.isDirectory()){
-        Serial.println("Not a directory");
-        return;
-    }
+#define SD_CS 5
 
-    File file = root.openNextFile();
-    while(file){
-        if(file.isDirectory()){
-            Serial.print("  DIR : ");
-            Serial.println(file.name());
-            if(levels){
-                listDir(fs, file.path(), levels -1);
-            }
-        } else {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("  SIZE: ");
-            Serial.println(file.size());
-        }
-        file = root.openNextFile();
-    }
-}
-
-void createDir(fs::FS &fs, const char * path){
-    Serial.printf("Creating Dir: %s\n", path);
-    if(fs.mkdir(path)){
-        Serial.println("Dir created");
-    } else {
-        Serial.println("mkdir failed");
-    }
-}
-
-void removeDir(fs::FS &fs, const char * path){
-    Serial.printf("Removing Dir: %s\n", path);
-    if(fs.rmdir(path)){
-        Serial.println("Dir removed");
-    } else {
-        Serial.println("rmdir failed");
-    }
-}
-
-void readFile(fs::FS &fs, const char * path){
-    Serial.printf("Reading file: %s\n", path);
-
-    File file = fs.open(path);
-    if(!file){
-        Serial.println("Failed to open file for reading");
-        return;
-    }
-
-    Serial.print("Read from file: ");
-    while(file.available()){
-        Serial.write(file.read());
-    }
-    file.close();
-}
-
-void writeFile(fs::FS &fs, const char * path, const char * message){
-    Serial.printf("Writing file: %s\n", path);
-
-    File file = fs.open(path, FILE_WRITE);
-    if(!file){
-        Serial.println("Failed to open file for writing");
-        return;
-    }
-    if(file.print(message)){
-        Serial.println("File written");
-    } else {
-        Serial.println("Write failed");
-    }
-    file.close();
-}
-
-void appendFile(fs::FS &fs, const char * path, const char * message){
-    Serial.printf("Appending to file: %s\n", path);
-
-    File file = fs.open(path, FILE_APPEND);
-    if(!file){
-        Serial.println("Failed to open file for appending");
-        return;
-    }
-    if(file.print(message)){
-        Serial.println("Message appended");
-    } else {
-        Serial.println("Append failed");
-    }
-    file.close();
-}
-
-void renameFile(fs::FS &fs, const char * path1, const char * path2){
-    Serial.printf("Renaming file %s to %s\n", path1, path2);
-    if (fs.rename(path1, path2)) {
-        Serial.println("File renamed");
-    } else {
-        Serial.println("Rename failed");
-    }
-}
-
-void deleteFile(fs::FS &fs, const char * path){
-    Serial.printf("Deleting file: %s\n", path);
-    if(fs.remove(path)){
-        Serial.println("File deleted");
-    } else {
-        Serial.println("Delete failed");
-    }
-}
-
-void testFileIO(fs::FS &fs, const char * path){
-    File file = fs.open(path);
-    static uint8_t buf[512];
-    size_t len = 0;
-    uint32_t start = millis();
-    uint32_t end = start;
-    if(file){
-        len = file.size();
-        size_t flen = len;
-        start = millis();
-        while(len){
-            size_t toRead = len;
-            if(toRead > 512){
-                toRead = 512;
-            }
-            file.read(buf, toRead);
-            len -= toRead;
-        }
-        end = millis() - start;
-        Serial.printf("%u bytes read for %u ms\n", flen, end);
-        file.close();
-    } else {
-        Serial.println("Failed to open file for reading");
-    }
+SPIClass SPI_SD(HSPI);
+File ROOT_DIR;
 
 
-    file = fs.open(path, FILE_WRITE);
-    if(!file){
-        Serial.println("Failed to open file for writing");
-        return;
-    }
-
-    size_t i;
-    start = millis();
-    for(i=0; i<2048; i++){
-        file.write(buf, 512);
-    }
-    end = millis() - start;
-    Serial.printf("%u bytes written for %u ms\n", 2048 * 512, end);
-    file.close();
-}
-
-extern void SD_Test()
+extern void SD_FsInit(void)
 {
-    if(!SD.begin()){
-        Serial.println("Card Mount Failed");
-        return;
+  bool fsState;
+  fsState = LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
+  if(fsState)
+  {
+    Serial.printf("LittleFS Init success\n");
+  }
+  else
+  {
+    Serial.printf("LittleFS Init FAIL\n");
+  }
+
+  ROOT_DIR = SD.open("/");  
+
+  int bookNum = 0;
+  while (true)               
+  {
+    File rootFile = ROOT_DIR.openNextFile();
+    String fileName = rootFile.name(); //文件名
+    
+
+    if(!rootFile)
+    {
+      break;
     }
-    uint8_t cardType = SD.cardType();
 
-    if(cardType == CARD_NONE){
-        Serial.println("No SD card attached");
-        return;
+    if (fileName.endsWith(".txt")) // 检测TXT文件
+    {
+      bookNum ++;
+      Serial.printf("txtFile: %s\n", fileName.c_str());
+      EPD_LineUpdate(bookNum, fileName);
     }
+  }
 
-    Serial.print("SD Card Type: ");
-    if(cardType == CARD_MMC){
-        Serial.println("MMC");
-    } else if(cardType == CARD_SD){
-        Serial.println("SDSC");
-    } else if(cardType == CARD_SDHC){
-        Serial.println("SDHC");
-    } else {
-        Serial.println("UNKNOWN");
-    }
 
-    uint64_t cardSize = SD.cardSize() / (1024 * 1024);
-    Serial.printf("SD Card Size: %lluMB\n", cardSize);
-
-    listDir(SD, "/", 0);
-    createDir(SD, "/mydir");
-    listDir(SD, "/", 0);
-    removeDir(SD, "/mydir");
-    listDir(SD, "/", 2);
-    writeFile(SD, "/hello.txt", "Hello ");
-    appendFile(SD, "/hello.txt", "World!\n");
-    readFile(SD, "/hello.txt");
-    deleteFile(SD, "/foo.txt");
-    renameFile(SD, "/hello.txt", "/foo.txt");
-    readFile(SD, "/foo.txt");
-    testFileIO(SD, "/test.txt");
-    Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
-    Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
 }
+
+extern void SD_Init(void)
+{
+  // SD_FsInit();
+
+  SD.end();
+  pinMode(SD_CS, OUTPUT);
+  digitalWrite(SD_CS, HIGH);
+  delay(1);
+  SPI_SD.begin(14, 12, 13, 15);
+
+  if(SD.begin(SD_CS, SPI_SD, 40000000))
+  {
+    Serial.println("SD卡挂载成功");
+    Serial.printf("SD内存/类型:%lld %d\r\n", SD.cardSize(), SD.cardType());
+  }
+  else
+  {
+    Serial.printf("SD卡挂载失败%d\r\n", SD.begin(SD_CS, SPI_SD, 40000000));
+  }
+
+  SD_FsInit();
+
+}
+
+
+extern void SD_Test(void)
+{
+
+  File testFile = SD.open("/poem.txt", FILE_READ);
+  if (testFile)
+  {
+    Serial.println("测试txt文件:");
+    while (testFile.available()) Serial.write(testFile.read());
+    Serial.println("");
+    testFile.close();
+  }
+  else
+  {
+    Serial.println("文件打开失败");
+  }
+
+}
+
+File txtFile;                  // 本次打开的txt文件系统对象
+String txtPage[8] = {}; 
+int8_t txtLine = 0;
+int8_t txtLastLine = 0;
+char txtByte;
+uint16_t ascCount = 0;
+uint16_t chineseCount = 0;
+boolean hskgState = 1; 
+
+extern void SD_PageClear(void)
+{
+  int i = 0;
+  while(i <= 7)
+  {
+    txtPage[i].clear();
+    i ++;
+  }
+}
+
+extern void SD_Clear(void)
+{
+  txtLine = 0;
+  txtByte = 0;
+  ascCount = 0;
+  chineseCount = 0;
+  hskgState = 1;
+  SD_PageClear();
+
+
+}
+
+
+extern void SD_TxtInit(void)
+{
+
+
+  txtFile = SD.open("/book1.txt", FILE_READ);
+  // txtFile = LittleFS.open("/book1.txt", "r");
+  // txtFile = LittleFS.open("/长夜难明.txt", "r");
+  if(txtFile)
+  {
+    Serial.printf("文本读取成功\n");
+    txtFile.seek(0, SeekSet); //索引的数据就是TXT文件的偏移量
+
+  }
+  else
+  {
+    Serial.printf("文本读取失败\n");
+  }
+}
+
+//TXT刷新一页程序 引自甘草
+extern void SD_GetOnePage(void)
+{
+  SD_Clear();
+  while (txtLine < 8)
+  {
+    if (txtLastLine != txtLine) //行首4个空格检测状态重置
+    {
+      txtLastLine = txtLine;
+      hskgState = 1;
+      
+    }
+
+    txtByte = txtFile.read();
+    while (txtByte == '\n' && txtLine <= 7) 
+    {
+      if (txtLine == 0) //等于首行，并且首行不为空，才插入换行
+      {
+        if (txtPage[txtLine].length() > 0) txtLine++; //换行
+        else txtPage[txtLine].clear();
+      }
+      else 
+      {
+        //连续空白的换行合并成一个
+        if (txtPage[txtLine].length() > 0) txtLine++;
+        else if (txtPage[txtLine].length() == 0 && txtPage[txtLine - 1].length() > 0) txtLine++;
+        /*else if (txt[line].length() == 1 && txt[line - 1].length() == 1) hh = 0;*/
+      }
+
+      if (txtLine <= 7) txtByte = txtFile.read();
+      ascCount = 0;
+      chineseCount = 0;
+    }
+
+    if (txtByte == '\t') //检查水平制表符 tab
+    {
+      if (txtPage[txtLine].length() == 0) txtPage[txtLine] += "    "; //行首的一个水平制表符 替换成4个空格
+      else txtPage[txtLine] += "       ";//非行首的一个水平制表符 替换成7个空格
+    }
+    else if ((txtByte >= 0 && txtByte <= 31) || txtByte == 127) //检查没有实际显示功能的字符
+    {
+      //ESP.wdtFeed();  // 喂狗
+    }
+    else txtPage[txtLine] += txtByte;
+    boolean ascState = 0;
+    byte a = B11100000;
+    byte b = txtByte & a;
+    if (b == B11100000) //中文等 3个字节
+    {
+      chineseCount ++;
+      txtByte = txtFile.read();
+      txtPage[txtLine] += txtByte;
+      txtByte = txtFile.read();
+      txtPage[txtLine] += txtByte;
+    }
+    else if (b == B11000000) //ascii扩展 2个字节
+    {
+      ascCount += 14;
+      txtByte = txtFile.read();
+      txtPage[txtLine] += txtByte;
+    }
+    else if (txtByte == '\t') //水平制表符，代替两个中文位置，14*2
+    {
+      if (txtPage[txtLine] == "    ") ascCount += 20; //行首，因为后面会检测4个空格再加8所以这里是20
+      else ascCount += 28; //非行首
+    }
+    else if (txtByte >= 0 && txtByte <= 255)
+    {
+      ascCount += getCharLength(txtByte) + 1;
+      ascState = 1;
+    }
+    uint16_t StringLength = ascCount + (chineseCount  * 14);
+    if (StringLength >= 260 && hskgState) //检测到行首的4个空格预计的长度再加长一点
+    {
+      if (txtPage[txtLine][0] == ' ' && txtPage[txtLine][1] == ' ' &&
+          txtPage[txtLine][2] == ' ' && txtPage[txtLine][3] == ' ') 
+      {
+        ascCount += 8;
+      }
+      hskgState = 0;
+    }
+    if (StringLength >= 272) //检查是否已填满屏幕 283
+    {
+      // Serial.println("");
+      // Serial.print("行"); Serial.print(txtLine); Serial.print(" 预计像素长度:"); Serial.println(StringLength);
+      // Serial.print("行"); Serial.print(txtLine); Serial.print(" 实际像素长度:"); Serial.println(u8g2Fonts.getUTF8Width(txtPage[txtLine].c_str()));
+      if (ascState == 0) //最后一个字符是中文，直接换行
+      {
+        txtLine++;
+        ascCount = 0;
+        chineseCount = 0;
+      }
+      else if (StringLength >= 275) //286 最后一个字符不是中文，在继续检测
+      {
+        char t = txtFile.read();
+        txtFile.seek(-1, SeekCur); //往回移
+        int8_t cz =  266 - StringLength;//294
+        int8_t t_length = getCharLength(t);
+        byte a = B11100000;
+        byte b = t & a;
+        if (b == B11100000 || b == B11000000) //中文 ascii扩展
+        {
+          txtLine++;
+          ascCount = 0;
+          chineseCount = 0;
+        }
+        else if (t_length > cz)
+        {
+          txtLine++;
+          ascCount = 0;
+          chineseCount = 0;
+        }
+      }
+    }
+  }
+  EPD_TxtOnePage(txtPage); //显示一页txt
+  Serial.printf("txt位置:%d\n", txtFile.position());
+  // txtFile.close();
+}
+
+extern void SD_NextPage(void)
+{
+
+  txtFile.seek(0, SeekSet); //索引的数据就是TXT文件的偏移量
+
+
+}
+
+//获取ascii字符的长度
+int8_t getCharLength(char zf) 
+{
+  if (zf == 0x20) return 4;      //空格
+  else if (zf == '!') return 4;
+  else if (zf == '"') return 5;
+  else if (zf == '#') return 5;
+  else if (zf == '$') return 6;
+  else if (zf == '%') return 7;
+  else if (zf == '&') return 7;
+  else if (zf == '\'') return 3;
+  else if (zf == '(') return 5;
+  else if (zf == ')') return 5;
+  else if (zf == '*') return 7;
+  else if (zf == '+') return 7;
+  else if (zf == ',') return 3;
+  else if (zf == '.') return 3;
+
+  else if (zf == '1') return 5;
+  else if (zf == ':') return 4;
+  else if (zf == ';') return 4;
+  else if (zf == '@') return 9;
+
+  else if (zf == 'A') return 8;
+  else if (zf == 'D') return 7;
+  else if (zf == 'G') return 7;
+  else if (zf == 'H') return 7;
+  else if (zf == 'I') return 3;
+  else if (zf == 'J') return 3;
+  else if (zf == 'M') return 8;
+  else if (zf == 'N') return 7;
+  else if (zf == 'O') return 7;
+  else if (zf == 'Q') return 7;
+  else if (zf == 'T') return 7;
+  else if (zf == 'U') return 7;
+  else if (zf == 'V') return 7;
+  else if (zf == 'W') return 11;
+  else if (zf == 'X') return 7;
+  else if (zf == 'Y') return 7;
+  else if (zf == 'Z') return 7;
+
+  else if (zf == '[') return 5;
+  else if (zf == ']') return 5;
+  else if (zf == '`') return 5;
+
+  else if (zf == 'c') return 5;
+  else if (zf == 'f') return 5;
+  else if (zf == 'i') return 1;
+  else if (zf == 'j') return 2;
+  else if (zf == 'k') return 5;
+  else if (zf == 'l') return 2;
+  else if (zf == 'm') return 9;
+  else if (zf == 'o') return 7;
+  else if (zf == 'r') return 4;
+  else if (zf == 's') return 5;
+  else if (zf == 't') return 4;
+  else if (zf == 'v') return 7;
+  else if (zf == 'w') return 9;
+  else if (zf == 'x') return 5;
+  else if (zf == 'y') return 7;
+  else if (zf == 'z') return 5;
+
+  else if (zf == '{') return 5;
+  else if (zf == '|') return 4;
+  else if (zf == '}') return 5;
+
+  else if ((zf >= 0 && zf <= 31) || zf == 127) return -1; //没有实际显示功能的字符
+
+  else return 6;
+}
+
+
+

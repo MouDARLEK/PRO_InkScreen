@@ -1,13 +1,34 @@
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
+typedef void (* KEY_CB) (void);
+class KEY
+{
+  public:
+    uint8_t KEY_PIN;
+    KEY_CB KEY_EVENT;
+
+    int keyPressTimes = 0;
+    bool keyPressed = false;
+
+
+    KEY(uint8_t keyPin, KEY_CB keyEvent);
+    void KEY_EventInit(void);
+  private:
+    
+
+};
+
 extern void LED_Init(void);
 extern void LED_Blink(void);
 
 extern void POWER_Init(void);
 extern float POWER_Check(void);
 
+void KEY_Event(void);
 extern void KEY_Init(void);
 extern void KEY_Read(void);
+
+extern void TIMER_Init(void);
 
 #endif
