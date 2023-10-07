@@ -109,7 +109,6 @@ extern void KEY_Init(void)
 
 extern void KEY_Read(void)
 {
-  // Serial.printf("KEY:%d %d %d\r\n",KEY_LEFT.keyPressTimes, KEY_MIDDLE.keyPressTimes, KEY_RIGHT.keyPressTimes);
   if(KEY_LEFT.keyPressed == true && KEY_LEFT.keyPressTimes <= 1)
   {
  
@@ -128,19 +127,24 @@ extern void KEY_Read(void)
 
   if(KEY_RIGHT.keyPressed == true )
   {
-    KEY_LEFT.keyPressTimes = 0;
     KEY_RIGHT.keyPressed = false;
     SD_Test();
+
+    SD_SeekPreviousPage();
+    SD_GetOnePage();
     // EPD_GlobalInit();
 
   }
 
    if(KEY_MIDDLE.keyPressed == true )
   {
-    EPD_Refresh();
+    // EPD_Refresh();
+    EPD_FingerArrow(KEY_MIDDLE.keyPressTimes);
+
+    KEY_LEFT.keyPressTimes = 0;
 
     KEY_RIGHT.keyPressTimes = 0;
-    KEY_MIDDLE.keyPressTimes = 0; 
+    // KEY_MIDDLE.keyPressTimes = 0; 
     KEY_MIDDLE.keyPressed = false;
     
   }

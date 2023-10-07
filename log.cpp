@@ -193,8 +193,8 @@ extern void LOG_Msg(LOG_LEVEL_E logLevel, const char* fileName, const char* func
 extern void LOG_Update(void)
 {
 	LOG_PortSend();
-    memset(LOG_STR_BUF, 0, LOG_BUF_MAX_LENGTH);
-    LOG_UPDATE_FLAG = LOG_TRUE;
+  memset(LOG_STR_BUF, 0, LOG_BUF_MAX_LENGTH);
+  LOG_UPDATE_FLAG = LOG_TRUE;
 
 }
 

@@ -5,39 +5,227 @@
 #include "FS.h"
 
 #include "epd.h"
-
-
-// static bool fsOK;
-#define FORMAT_LITTLEFS_IF_FAILED true
+#include "string.h"
 
 #define SD_CS 5
-
 SPIClass SPI_SD(HSPI);
+
 File ROOT_DIR;
 
+//计算显示一页txt的全局变量
+File txtFile;                  
+String txtPage[8] = {}; 
+int8_t txtLine = 0;
+int8_t txtLastLine = 0;
+char txtByte;
+uint16_t ascCount = 0;
+uint16_t chineseCount = 0;
+boolean hskgState = 1; 
 
-extern void SD_FsInit(void)
+BOOK BOOK_OPEN;
+String BOOK_INDEX = "/book.idx";
+uint8_t BOOK_NUM = 0;
+uint32_t BOOK_RECORD_NUM = 0;
+File txtIndexFile; 
+
+String bookList[8] = {};
+uint8_t READ_BUFF[30] = {};
+uint8_t WRITE_BUFF[30] = {};
+uint8_t INDEX_BUFF[1000] = {};
+
+void SD_IndexStore(uint32_t startByte, bool beginStore)
 {
-  bool fsState;
-  fsState = LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED);
-  if(fsState)
+   static int storeBytes = 0;
+
+  
+  if(beginStore)
   {
-    Serial.printf("LittleFS Init success\n");
+    memset(INDEX_BUFF, 0, 1000);
+    txtIndexFile = SD.open(BOOK_INDEX, FILE_READ);
+    storeBytes = txtIndexFile.size() - startByte;
+
+    if(storeBytes <= 0)
+    {
+      return;
+    }
+
+    txtIndexFile.seek(startByte);
+    txtIndexFile.read(INDEX_BUFF, storeBytes);
+    
+    Serial.printf("从%d读取%d字节\n",startByte, storeBytes);
+
   }
   else
   {
-    Serial.printf("LittleFS Init FAIL\n");
+    if(storeBytes <= 0)
+    {
+      storeBytes = 0;
+      return;
+    }
+    txtIndexFile = SD.open(BOOK_INDEX, FILE_WRITE);
+
+    txtIndexFile.seek(startByte);
+    txtIndexFile.write(INDEX_BUFF, storeBytes);
+    Serial.printf("从%d写入%d字节\n",startByte, storeBytes);
+    storeBytes = 0;
+
+
   }
+  txtIndexFile.close();
+
+
+
+  
+}
+
+extern void SD_IndexRecord(void)
+{
+  SD_IndexStore(BOOK_OPEN.indexByte + 40, true);
+  SD_IndexWrite(String(BOOK_OPEN.readByte), BOOK_OPEN.indexByte + 30, 10);
+  SD_IndexStore(BOOK_OPEN.indexByte + 40, false);
+  Serial.printf("阅读位置%s记录在%d\n",String(BOOK_OPEN.readByte), BOOK_OPEN.indexByte + 30);
+}
+
+extern int SD_IndexSearch(uint32_t bookNum, String txtName)
+{
+  if(bookNum == 0)
+  {
+    return 0;
+  }
+  int indexNum = 0;
+  int indexByte = 0;
+  while(indexNum < bookNum)
+  {
+
+    indexNum ++;
+    indexByte = indexNum * 40;
+    SD_IndexRead(READ_BUFF, indexByte, 30);
+    Serial.printf("读取到索引书名:%s\n", READ_BUFF);
+    if(strcmp(txtName.c_str(), (char*)READ_BUFF) == 0)
+    {
+      Serial.printf("成功搜索到该书:%s\n", txtName.c_str());
+      return indexByte;
+    }
+  
+  }
+  Serial.printf("未搜索到该书:%s\n", txtName.c_str());
+  return 0;
+
+
+}
+
+extern void SD_IndexMatch(String txtName)
+{
+  if (SD.exists(BOOK_INDEX))
+  {
+    Serial.println("存在书籍索引...");
+    SD_IndexRead(READ_BUFF, 0, 30);
+    BOOK_RECORD_NUM = String((char*)READ_BUFF).toInt();
+    Serial.printf("索引记录%d本\n", BOOK_RECORD_NUM);
+    int indexPosition = SD_IndexSearch(BOOK_RECORD_NUM, txtName);
+    if(indexPosition == 0)//没搜到，新加一本
+    {
+      
+      BOOK_RECORD_NUM += 1;
+      BOOK_OPEN.indexByte = BOOK_RECORD_NUM * 40;
+      Serial.printf("没搜到该书,记录在索引%d字节处\n", BOOK_OPEN.indexByte);
+      BOOK_OPEN.readByte = 0;
+      
+      // SD_IndexWrite(String(BOOK_RECORD_NUM), 0, 30);
+      SD_IndexWrite(txtName, BOOK_OPEN.indexByte, 30);
+      SD_IndexWrite(String(0), BOOK_OPEN.indexByte + 30, 10);
+
+      SD_IndexStore(40, true);
+      SD_IndexWrite(String(BOOK_RECORD_NUM), 0, 30);
+      SD_IndexStore(40, false);
+
+    }
+    else
+    {
+      BOOK_OPEN.indexByte = BOOK_RECORD_NUM * 40;
+
+      SD_IndexRead(READ_BUFF, BOOK_OPEN.indexByte + 30, 10);
+      BOOK_OPEN.readByte = String((char*)READ_BUFF).toInt();
+      Serial.printf("该书已阅读%llu\n", BOOK_OPEN.readByte);
+      // SD_IndexWrite(String(BOOK_RECORD_NUM), 0, 30);
+
+    }
+  }
+  else
+  {
+    Serial.println("索引不存在，创建...");
+    BOOK_RECORD_NUM = 1;
+
+    SD_IndexWrite(String(BOOK_RECORD_NUM), 0, 30);
+    Serial.printf("索引记录 %s 本\n", WRITE_BUFF);
+  
+    BOOK_OPEN.indexByte = BOOK_RECORD_NUM * 40;
+    BOOK_OPEN.readByte = 0;
+    SD_IndexWrite(txtName, BOOK_OPEN.indexByte, 30);
+    SD_IndexWrite(String(0), BOOK_OPEN.indexByte + 30, 10);
+
+  }
+
+}
+
+
+extern void SD_IndexRead(uint8_t* readBuff, uint64_t seekByte, uint32_t readBytes)
+{
+  memset(readBuff, 0, 30);
+  txtIndexFile = SD.open(BOOK_INDEX, FILE_READ);
+  txtIndexFile.seek(seekByte);
+  txtIndexFile.read(readBuff, readBytes);
+  txtIndexFile.close();
+}
+
+extern void SD_IndexWrite(String dataStr, uint64_t seekByte, uint32_t writeBytes)
+{
+  memset(WRITE_BUFF, 0, 30);
+  snprintf((char*)WRITE_BUFF, dataStr.length() + 1, "%s", dataStr.c_str());
+
+  txtIndexFile = SD.open(BOOK_INDEX, FILE_WRITE);
+  txtIndexFile.seek(seekByte);
+  txtIndexFile.write(WRITE_BUFF, writeBytes);
+  // txtIndexFile.print(WRITE_BUFF);
+  
+  txtIndexFile.close();
+}
+
+ 
+bool BOOK::BOOK_Init(String txtName)
+{
+
+  this->bookName = txtName;
+  Serial.printf("导入书：");
+  Serial.print(this->bookName);
+  txtFile = SD.open(this->bookName, FILE_READ);
+  if(txtFile)
+  {
+    Serial.printf("文本读取成功\n");
+    txtFile.seek(BOOK_OPEN.readByte, SeekSet); 
+    this->bookSize = txtFile.size();
+    return true;
+  }
+  else
+  {
+    Serial.printf("文本读取失败\n");
+    return false;
+  }
+
+}
+
+extern void SD_FsInit(void)
+{
 
   ROOT_DIR = SD.open("/");  
 
-  int bookNum = 0;
+  int bookNum = 1;
+  EPD_Refresh();
+  EPD_LineAdd(bookNum, "检索到的txt文本:");
   while (true)               
   {
     File rootFile = ROOT_DIR.openNextFile();
     String fileName = rootFile.name(); //文件名
-    
-
     if(!rootFile)
     {
       break;
@@ -45,19 +233,29 @@ extern void SD_FsInit(void)
 
     if (fileName.endsWith(".txt")) // 检测TXT文件
     {
+      bookList[bookNum - 1] = "/" + fileName;
       bookNum ++;
       Serial.printf("txtFile: %s\n", fileName.c_str());
-      EPD_LineUpdate(bookNum, fileName);
+      EPD_LineAdd(bookNum, fileName);
+      
+        
+
+    }
+    else
+    {
+      Serial.printf("otherFile: %s\n", fileName.c_str());
     }
   }
+  EPD_BufferSend();
+  BOOK_NUM = bookNum - 1;
+  // SD_IndexMatch("/poem.txt");
 
 
 }
 
+
 extern void SD_Init(void)
 {
-  // SD_FsInit();
-
   SD.end();
   pinMode(SD_CS, OUTPUT);
   digitalWrite(SD_CS, HIGH);
@@ -97,14 +295,6 @@ extern void SD_Test(void)
 
 }
 
-File txtFile;                  // 本次打开的txt文件系统对象
-String txtPage[8] = {}; 
-int8_t txtLine = 0;
-int8_t txtLastLine = 0;
-char txtByte;
-uint16_t ascCount = 0;
-uint16_t chineseCount = 0;
-boolean hskgState = 1; 
 
 extern void SD_PageClear(void)
 {
@@ -125,27 +315,13 @@ extern void SD_Clear(void)
   hskgState = 1;
   SD_PageClear();
 
-
 }
 
 
 extern void SD_TxtInit(void)
 {
-
-
-  txtFile = SD.open("/book1.txt", FILE_READ);
-  // txtFile = LittleFS.open("/book1.txt", "r");
-  // txtFile = LittleFS.open("/长夜难明.txt", "r");
-  if(txtFile)
-  {
-    Serial.printf("文本读取成功\n");
-    txtFile.seek(0, SeekSet); //索引的数据就是TXT文件的偏移量
-
-  }
-  else
-  {
-    Serial.printf("文本读取失败\n");
-  }
+  SD_IndexMatch("/book1.txt");
+  BOOK_OPEN.BOOK_Init("/book1.txt");
 }
 
 //TXT刷新一页程序 引自甘草
@@ -231,9 +407,6 @@ extern void SD_GetOnePage(void)
     }
     if (StringLength >= 272) //检查是否已填满屏幕 283
     {
-      // Serial.println("");
-      // Serial.print("行"); Serial.print(txtLine); Serial.print(" 预计像素长度:"); Serial.println(StringLength);
-      // Serial.print("行"); Serial.print(txtLine); Serial.print(" 实际像素长度:"); Serial.println(u8g2Fonts.getUTF8Width(txtPage[txtLine].c_str()));
       if (ascState == 0) //最后一个字符是中文，直接换行
       {
         txtLine++;
@@ -264,22 +437,55 @@ extern void SD_GetOnePage(void)
     }
   }
   EPD_TxtOnePage(txtPage); //显示一页txt
-  Serial.printf("txt位置:%d\n", txtFile.position());
+  BOOK_OPEN.readByte = txtFile.position();
+  SD_IndexRecord();
+  Serial.printf("txt位置:%d\n", BOOK_OPEN.readByte);
   // txtFile.close();
+   
 }
 
-extern void SD_NextPage(void)
+extern void SD_SeekPreviousPage(void)
+{
+  uint64_t lastPageByte = 0;
+  lastPageByte = BOOK_OPEN.readByte - 800;
+  if(BOOK_OPEN.readByte <= 800)
+  {
+    lastPageByte = 0;
+  }
+  txtFile.seek(lastPageByte); 
+  Serial.printf("翻页上移:%d\n", lastPageByte);
+
+
+
+}
+
+float SD_GetReadProgerss(void)
 {
 
-  txtFile.seek(0, SeekSet); //索引的数据就是TXT文件的偏移量
+  uint64_t readByte = BOOK_OPEN.readByte;
+  uint64_t allByte = (uint64_t)BOOK_OPEN.bookSize; 
 
-
+  
+  if(allByte <= 0)
+  {
+    Serial.printf("阅读进度wrong\n");
+    return 0;
+  }
+  uint32_t readCount = ((float)(readByte*1000 / allByte));
+  
+  if(readCount >= 1000)
+  {
+    return 100;
+  }
+  float readProgress = (float)readCount / 10.0; 
+  Serial.printf("阅读%llu %llu %f\n",readByte, (uint64_t)allByte, readProgress);
+  return readProgress;
 }
 
 //获取ascii字符的长度
 int8_t getCharLength(char zf) 
 {
-  if (zf == 0x20) return 4;      //空格
+  if (zf == 0x20) return 4;      
   else if (zf == '!') return 4;
   else if (zf == '"') return 5;
   else if (zf == '#') return 5;
@@ -346,6 +552,8 @@ int8_t getCharLength(char zf)
 
   else return 6;
 }
+
+
 
 
 

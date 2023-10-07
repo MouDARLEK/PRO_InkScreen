@@ -1,6 +1,9 @@
 #include "epd.h"
 #include "board.h"
 #include "log.h"
+#include "sdtxt.h"
+
+#include "resources/resources.h"
 
 //墨水屏驱动类 黑白局刷+速刷
 #define ENABLE_GxEPD2_GFX 0
@@ -19,7 +22,6 @@ SPIClass hspi(HSPI);
 
 //墨水屏驱动类 三色全局更新
 #include<EPD_Driver.h>
-#include "resources/resources.h"
 #define SCREEN 266
 EPD_Driver epdGlobal(eScreen_EPD_266, boardESP32DevKitC_EXT3);
 
@@ -79,7 +81,6 @@ extern void EPD_GlobalTest(void)
   // epdGlobal.COG_powerOff();
 }
 
-//
 extern void EPD_Init(void)
 {
   hspi.begin(14, 12, 13, 15);
@@ -113,26 +114,33 @@ extern void EPD_Test(void)
     display.print(epdTestStr);
   }
   while (display.nextPage());//发送buffer
+
   display.drawInvertedBitmap(x, y + 30,  ICON_SUNSHIN, 45, 45, GxEPD_BLACK);
+  display.nextPage();
   
 }
+
+extern void EPD_FingerArrow(uint8_t pointLine)
+{
+  display.setPartialWindow(8, 10, 30, 150);
+  display.firstPage();
+  // display.nextPage();
+  display.drawInvertedBitmap(8, 15 * pointLine + 12,  ICON_ARROW, 26, 26, GxEPD_BLACK);
+  display.nextPage();
+
+}
+
 //电压显示
 extern void EPD_ShowVoltage(void)
 {
-  // display.setPartialWindow(0, 0, display.width(), display.height());
+
   String voltage = String(POWER_Check()) + " V";
 
   display.setPartialWindow(256, 0, 38, 10);
-  // display.fillScreen(GxEPD_WHITE);
-  // display.nextPage();
   u8g2Fonts.setCursor(256, 10);
  
   u8g2Fonts.print(voltage);
   display.nextPage();
-
-  // EPD_PowerRemain();
-
-  // LOG_Output("电压：%s\n", voltage.c_str());
 }
 
 extern void EPD_PowerRemain(void)
@@ -164,10 +172,6 @@ extern void EPD_PowerRemain(void)
     powerNum = 0;
   }
 
-  // if(powerNum <= powerNumLast)
-  // {
-  //   powerNum = powerNumLast;
-  // }
 
 
   String powerPercent ="电量:" + String(powerNum) + "%";
@@ -182,38 +186,92 @@ extern void EPD_PowerRemain(void)
   u8g2Fonts.print(powerVoltage);
   display.nextPage();
   
-
-
   powerNumLast = powerNum;
 }
 
-//更新一行
-extern void EPD_LineUpdate(uint8_t lineNum, String lineString) ////发送局部刷新的显示信息到屏幕,带居中
+extern void EPD_PowerRemainTXT(void)
 {
-  const char *strContent = lineString.c_str();                            //String转换char
-  uint16_t strLen = u8g2Fonts.getUTF8Width(strContent);         //获取字符的像素长度
-  uint16_t strX = (display.width() / 2) - (strLen / 2);           //计算字符居中的X坐标（屏幕宽度/2-字符宽度/2）
-  display.setPartialWindow(0, lineNum * 16, display.width(), 16);   //整行刷新
+  float batteryV = POWER_Check();
+  int powerNum = 0;
+  static int powerNumLast = 0;
+  if(batteryV > 3.5)
+  {
+    powerNum = int(101.26 - 0.265/(batteryV - 3.475));
+  }
+  else if(batteryV > 3.42)
+  {
+    powerNum = int(709.2*batteryV - 2390.2);
+  }
+  else
+  {
+    powerNum = int(239.36*batteryV - 784.0);
+  }
+
+  Serial.printf("电量百分比:%d %d\r\n", powerNum, powerNumLast);
+  if(powerNum >= 100)
+  {
+    powerNum = 100;
+  }
+
+  if(powerNum <= 0)
+  {
+    powerNum = 0;
+  }
+
+  String powerPercent ="电量:" + String(powerNum) + "%";
+  String powerVoltage = String(batteryV) + " V";
+
+  u8g2Fonts.setCursor(180, 10);
+  u8g2Fonts.print(powerPercent);
+  u8g2Fonts.setCursor(244, 10);
+  u8g2Fonts.print(powerVoltage);
+
+  
+  powerNumLast = powerNum;
+}
+
+extern void EPD_ReadProgressTXT(float readPercent)
+{
+  
+  String readPercentStr = "已阅读:" + String(readPercent) + "%";
+  u8g2Fonts.setCursor(20, 10);
+  u8g2Fonts.print(readPercentStr);
+
+}
+
+
+
+//更新一行
+extern void EPD_LineUpdate(uint8_t lineNum, String lineString) 
+{
+  const char *strContent = lineString.c_str();                           
+  // uint16_t strLen = u8g2Fonts.getUTF8Width(strContent);         
+  // uint16_t strX = (display.width() / 2) - (strLen / 2);           //计算字符居中的X坐标
+  display.setPartialWindow(0, lineNum * 16, display.width(), 16);   
   display.firstPage();
+  display.nextPage();
   do
   {
-    u8g2Fonts.setCursor(strX, lineNum * 16 + 13);
-    u8g2Fonts.print(strContent);
+  u8g2Fonts.setCursor(30, lineNum * 16 + 13);
+  u8g2Fonts.print(strContent);
   }
   while (display.nextPage());
   //display.powerOff(); //关闭屏幕电源
 }
 
+// extern void EPD_
 //更新一页txt信息
 extern void EPD_TxtOnePage(String *zfc) //发送一页TXT信息到屏幕 0-8行
 {
   //u8g2Fonts.setFont(chinese_gb2312);
-  display.setPartialWindow(4, 20, 286, 180);
+  // display.setPartialWindow(4, 20, 286, 180);
+  display.setPartialWindow(4, 0, 286, 200);
   display.firstPage();
   display.nextPage();
-
-  do
-  {
+  EPD_PowerRemainTXT();
+  EPD_ReadProgressTXT(SD_GetReadProgerss());
+  // do
+  // {
     for (uint8_t i = 0; i < 8; i++)
     {
       uint8_t offset = 0; //缩减偏移量
@@ -231,11 +289,12 @@ extern void EPD_TxtOnePage(String *zfc) //发送一页TXT信息到屏幕 0-8行
       }
       u8g2Fonts.setCursor(6 + offset, i * 16 + 32);
       u8g2Fonts.print(zfc[i]);
-      Serial.printf(zfc[i].c_str());
+      // Serial.printf(zfc[i].c_str());
      
     }
-  }
-  while (display.nextPage());
+  // }
+  // while (display.nextPage());
+  display.nextPage();
   delay(10);
   display.powerOff(); //仅关闭屏幕电源
 
@@ -244,16 +303,23 @@ extern void EPD_TxtOnePage(String *zfc) //发送一页TXT信息到屏幕 0-8行
 extern void EPD_Refresh(void)
 {
 
-  // display.setPartialWindow(0, 0, display.width(), display.height());
-  // display.fillScreen(GxEPD_BLACK);
-  // display.nextPage();
-  // delay(1000);
-  // display.firstPage();
-  // display.nextPage();
-
-  display.fillScreen(GxEPD_BLACK);  // 填充屏幕
-  display.display(1);         // 显示缓冲内容到屏幕，用于全屏缓冲
+  display.setFullWindow();
   display.fillScreen(GxEPD_WHITE);
   display.display(1);
 
 }
+
+
+extern void EPD_LineAdd(uint8_t lineNum, String lineString) 
+{
+  const char *strContent = lineString.c_str();                           
+  // display.setPartialWindow(0, lineNum * 16, display.width(), 16);   
+  u8g2Fonts.setCursor(40, lineNum * 16 + 13);
+  u8g2Fonts.print(strContent);
+}
+
+extern void EPD_BufferSend(void)
+{
+  display.nextPage();
+} 
+

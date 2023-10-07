@@ -17,7 +17,8 @@ void setup()
   // delay(1000);
 
   EPD_Init();
-  // EPD_Test();
+  EPD_Test();
+  delay(1000);
   
   // delay(3000);
   EPD_ChineseInit();
@@ -36,7 +37,7 @@ void loop()
   static uint32_t loopTimes = 0;
   loopTimes ++;
 
-  if(loopTimes % 300 == 0)
+  if(loopTimes % 200 == 0)
   {
     KEY_Read();
   }
@@ -46,14 +47,14 @@ void loop()
     // KEY_Read();
   }
 
-  if(loopTimes % (1000*40) == 0 || loopTimes == 1)
+  if(loopTimes % (1000*180) == 0 || loopTimes == 1)
   {
   //  EPD_ShowVoltage();
-   EPD_PowerRemain();
+  //  EPD_PowerRemain();
   
   }
 
-  if(loopTimes % (1000*90) == 0)
+  if(loopTimes % (1000*600) == 0)
   {
    loopTimes = 0;
 
