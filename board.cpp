@@ -11,6 +11,20 @@
 #define KEY_M 34
 #define KEY_L 39
 
+typedef enum
+{
+  DEFAULT_MODE,
+  DIRECTORY_MODE,
+  READ_MODE,
+  LOG_MODE,
+  SLEEP_MODE
+}DEVICE_MODE;
+
+
+DEVICE_MODE deviceMode =  DIRECTORY_MODE;
+DEVICE_MODE deviceLastMode =  DEFAULT_MODE;
+
+
 hw_timer_t * timer = NULL;
 
 KEY KEY_LEFT(KEY_L, KEY_Event);
@@ -18,6 +32,9 @@ KEY KEY_RIGHT(KEY_R, KEY_Event);
 KEY KEY_MIDDLE(KEY_M, KEY_Event);
 
 static float BATTERT_CONVERT_NUM = 0.004549; //= vol/4095*3.3/(1/(4.7+1))
+
+
+
 
 void TIMER_Event(void)
 {
@@ -76,6 +93,12 @@ void KEY::KEY_EventInit(void)
   attachInterrupt(this->KEY_PIN, this->KEY_EVENT, FALLING);
 }
 
+void KEY::KEY_Clear(void)
+{
+  this->keyPressTimes = 0;
+  this->keyPressed = false;
+}
+
 void KEY_Event(void)
 {
   if(digitalRead(KEY_LEFT.KEY_PIN) == LOW)
@@ -106,6 +129,102 @@ extern void KEY_Init(void)
   KEY_MIDDLE.KEY_EventInit();
 }
 
+extern void KEY_ClearAll(void)
+{
+  KEY_LEFT.KEY_Clear();
+  KEY_RIGHT.KEY_Clear();
+  KEY_MIDDLE.KEY_Clear();
+}
+
+extern void KEY_ReadMode(void)
+{
+
+  if(deviceMode != deviceLastMode)
+  {
+    deviceLastMode = deviceMode;
+    SD_TxtInit();
+    SD_GetOnePage();
+    KEY_ClearAll();
+  }
+  if(KEY_LEFT.keyPressed == true)
+  {
+    SD_GetOnePage();
+    KEY_LEFT.keyPressed = false;
+  }
+  if(KEY_RIGHT.keyPressed == true )
+  {
+    KEY_RIGHT.keyPressed = false;
+    SD_SeekPreviousPage();
+    SD_GetOnePage();
+
+  }
+
+  if(KEY_MIDDLE.keyPressed == true )
+  {
+    deviceMode = DIRECTORY_MODE;
+  }
+
+
+}
+
+extern void KEY_DirMode(void)
+{
+  static int dirPointer = 0;
+  static uint8_t txtNum = 0;
+  if(deviceMode != deviceLastMode)
+  {
+    txtNum = SD_FsInit();
+    KEY_ClearAll();
+    EPD_FingerArrow(1);
+    deviceLastMode = deviceMode;
+  }
+
+  if(txtNum > 8)//最多显示八本
+  {
+    txtNum = 8;
+  }
+
+  if(KEY_LEFT.keyPressed == true)
+  {
+    dirPointer = ((dirPointer + 1) % txtNum);
+    EPD_FingerArrow(dirPointer + 1);
+    KEY_LEFT.keyPressed = false;
+    Serial.printf("文件列表指向:%d %d", dirPointer, txtNum);
+
+  }
+  if(KEY_RIGHT.keyPressed == true )
+  {
+    dirPointer --;
+    if(dirPointer < 0)
+    {
+      dirPointer = txtNum - 1;
+    }
+    EPD_FingerArrow(dirPointer + 1);
+    KEY_RIGHT.keyPressed = false;
+    Serial.printf("文件列表指向:%d %d", dirPointer, txtNum);
+  }
+  
+  if(KEY_MIDDLE.keyPressed == true )
+  {
+    SD_SelectBook(dirPointer);
+    deviceMode = READ_MODE;
+  }
+  
+}
+
+extern void KEY_ModeDetect(void)
+{
+  if(deviceMode == DIRECTORY_MODE)
+  {
+    KEY_DirMode();
+  }
+
+  if(deviceMode == READ_MODE)
+  {
+    KEY_ReadMode();
+  }
+}
+
 
 extern void KEY_Read(void)
 {
@@ -115,11 +234,10 @@ extern void KEY_Read(void)
     SD_TxtInit();
     SD_GetOnePage();
     KEY_LEFT.keyPressed = false;
-    
   }
   else if(KEY_LEFT.keyPressed == true)
   {
-    // SD_Clear();
+
     SD_GetOnePage();
     KEY_LEFT.keyPressed = false;
     
@@ -128,30 +246,22 @@ extern void KEY_Read(void)
   if(KEY_RIGHT.keyPressed == true )
   {
     KEY_RIGHT.keyPressed = false;
-    SD_Test();
-
     SD_SeekPreviousPage();
     SD_GetOnePage();
-    // EPD_GlobalInit();
 
   }
 
-   if(KEY_MIDDLE.keyPressed == true )
+  if(KEY_MIDDLE.keyPressed == true )
   {
-    // EPD_Refresh();
     EPD_FingerArrow(KEY_MIDDLE.keyPressTimes);
-
     KEY_LEFT.keyPressTimes = 0;
-
-    KEY_RIGHT.keyPressTimes = 0;
-    // KEY_MIDDLE.keyPressTimes = 0; 
+    KEY_RIGHT.keyPressTimes = 0; 
     KEY_MIDDLE.keyPressed = false;
     
   }
 
 
 }
-
 
 
 

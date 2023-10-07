@@ -14,6 +14,7 @@ class KEY
 
     KEY(uint8_t keyPin, KEY_CB keyEvent);
     void KEY_EventInit(void);
+    void KEY_Clear(void);
   private:
     
 
@@ -28,6 +29,9 @@ extern float POWER_Check(void);
 void KEY_Event(void);
 extern void KEY_Init(void);
 extern void KEY_Read(void);
+extern void KEY_DirMode(void);
+extern void KEY_ReadMode(void);
+extern void KEY_ModeDetect(void);
 
 extern void TIMER_Init(void);
 

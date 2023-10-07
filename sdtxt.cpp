@@ -80,6 +80,10 @@ void SD_IndexStore(uint32_t startByte, bool beginStore)
 
 extern void SD_IndexRecord(void)
 {
+  if(BOOK_OPEN.readByte >= BOOK_OPEN.bookSize)
+  {
+    BOOK_OPEN.readByte = BOOK_OPEN.bookSize;
+  }
   SD_IndexStore(BOOK_OPEN.indexByte + 40, true);
   SD_IndexWrite(String(BOOK_OPEN.readByte), BOOK_OPEN.indexByte + 30, 10);
   SD_IndexStore(BOOK_OPEN.indexByte + 40, false);
@@ -142,7 +146,7 @@ extern void SD_IndexMatch(String txtName)
     }
     else
     {
-      BOOK_OPEN.indexByte = BOOK_RECORD_NUM * 40;
+      BOOK_OPEN.indexByte = indexPosition;
 
       SD_IndexRead(READ_BUFF, BOOK_OPEN.indexByte + 30, 10);
       BOOK_OPEN.readByte = String((char*)READ_BUFF).toInt();
@@ -214,7 +218,7 @@ bool BOOK::BOOK_Init(String txtName)
 
 }
 
-extern void SD_FsInit(void)
+extern uint8_t SD_FsInit(void)
 {
 
   ROOT_DIR = SD.open("/");  
@@ -237,8 +241,6 @@ extern void SD_FsInit(void)
       bookNum ++;
       Serial.printf("txtFile: %s\n", fileName.c_str());
       EPD_LineAdd(bookNum, fileName);
-      
-        
 
     }
     else
@@ -248,11 +250,15 @@ extern void SD_FsInit(void)
   }
   EPD_BufferSend();
   BOOK_NUM = bookNum - 1;
+  return BOOK_NUM;
   // SD_IndexMatch("/poem.txt");
-
 
 }
 
+extern void SD_SelectBook(int txtNum)
+{
+  BOOK_OPEN.bookName = bookList[txtNum];
+}
 
 extern void SD_Init(void)
 {
@@ -272,7 +278,6 @@ extern void SD_Init(void)
     Serial.printf("SD卡挂载失败%d\r\n", SD.begin(SD_CS, SPI_SD, 40000000));
   }
 
-  SD_FsInit();
 
 }
 
@@ -318,10 +323,16 @@ extern void SD_Clear(void)
 }
 
 
+// extern void SD_TxtInit(void)
+// {
+//   SD_IndexMatch("/book1.txt");
+//   BOOK_OPEN.BOOK_Init("/book1.txt");
+// }
+
 extern void SD_TxtInit(void)
 {
-  SD_IndexMatch("/book1.txt");
-  BOOK_OPEN.BOOK_Init("/book1.txt");
+  SD_IndexMatch(BOOK_OPEN.bookName);
+  BOOK_OPEN.BOOK_Init(BOOK_OPEN.bookName);
 }
 
 //TXT刷新一页程序 引自甘草

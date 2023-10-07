@@ -1,4 +1,3 @@
-
 #include "epd.h"
 #include "board.h"
 #include "sdtxt.h"
@@ -10,17 +9,13 @@ void setup()
   LED_Init();
   TIMER_Init();
   Serial.begin(115200);
-
- 
   
   // EPD_GlobalInit();
-  // delay(1000);
+
 
   EPD_Init();
-  EPD_Test();
-  delay(1000);
+  // EPD_Test();
   
-  // delay(3000);
   EPD_ChineseInit();
   // EPD_ChineseTest();
 
@@ -37,28 +32,26 @@ void loop()
   static uint32_t loopTimes = 0;
   loopTimes ++;
 
-  if(loopTimes % 200 == 0)
+  if(loopTimes % 40 == 0)
   {
-    KEY_Read();
+    KEY_ModeDetect();
   }
   
-  if(loopTimes % 1000 == 0)
+  if(loopTimes % 200 == 0)
   {
     // KEY_Read();
   }
 
-  if(loopTimes % (1000*180) == 0 || loopTimes == 1)
+  if(loopTimes % (200*180) == 0)
   {
-  //  EPD_ShowVoltage();
-  //  EPD_PowerRemain();
-  
+
   }
 
-  if(loopTimes % (1000*600) == 0)
+  if(loopTimes % (200*600) == 0)
   {
    loopTimes = 0;
 
   }
 
-  delay(1);
+  delay(5);
 }

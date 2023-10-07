@@ -73,13 +73,8 @@ extern void EPD_GlobalInit(void)
 
 }
 
-//
-extern void EPD_GlobalTest(void)
-{
-  // epdGlobal.globalUpdate(BWR_blackBuffer, BWR_redBuffer);
-  // // Turn off CoG
-  // epdGlobal.COG_powerOff();
-}
+
+
 
 extern void EPD_Init(void)
 {
@@ -270,30 +265,28 @@ extern void EPD_TxtOnePage(String *zfc) //发送一页TXT信息到屏幕 0-8行
   display.nextPage();
   EPD_PowerRemainTXT();
   EPD_ReadProgressTXT(SD_GetReadProgerss());
-  // do
-  // {
-    for (uint8_t i = 0; i < 8; i++)
+
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    uint8_t offset = 0; //缩减偏移量
+    if (zfc[i][0] == 0x20) //检查首行是否为半角空格 0x20
     {
-      uint8_t offset = 0; //缩减偏移量
-      if (zfc[i][0] == 0x20) //检查首行是否为半角空格 0x20
-      {
-        //继续检测后3位是否为半角空格，检测到连续的4个半角空格，偏移12个像素
-        if (zfc[i][1] == 0x20 && zfc[i][2] == 0x20 && zfc[i][3] == 0x20)
-          offset = 12;
-      }
-      else if (zfc[i][0] == 0xE3 && zfc[i][1] == 0x80 && zfc[i][2] == 0x80) //检查首行是否为全角空格 0x3000 = E3 80 80
-      {
-        //继续检测后2位是否为全角空格，检测到连续的2个全角空格，偏移2个像素
-        if (zfc[i][3] == 0xE3 && zfc[i][4] == 0x80 && zfc[i][5] == 0x80)
-          offset = 2;
-      }
-      u8g2Fonts.setCursor(6 + offset, i * 16 + 32);
-      u8g2Fonts.print(zfc[i]);
-      // Serial.printf(zfc[i].c_str());
-     
+      //继续检测后3位是否为半角空格，检测到连续的4个半角空格，偏移12个像素
+      if (zfc[i][1] == 0x20 && zfc[i][2] == 0x20 && zfc[i][3] == 0x20)
+        offset = 12;
     }
-  // }
-  // while (display.nextPage());
+    else if (zfc[i][0] == 0xE3 && zfc[i][1] == 0x80 && zfc[i][2] == 0x80) //检查首行是否为全角空格 0x3000 = E3 80 80
+    {
+      //继续检测后2位是否为全角空格，检测到连续的2个全角空格，偏移2个像素
+      if (zfc[i][3] == 0xE3 && zfc[i][4] == 0x80 && zfc[i][5] == 0x80)
+        offset = 2;
+    }
+    u8g2Fonts.setCursor(6 + offset, i * 16 + 32);
+    u8g2Fonts.print(zfc[i]);
+    // Serial.printf(zfc[i].c_str());
+    
+  }
+
   display.nextPage();
   delay(10);
   display.powerOff(); //仅关闭屏幕电源

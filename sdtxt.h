@@ -10,9 +10,10 @@ int8_t getCharLength(char zf);
 extern void SD_GetOnePage(void);
 extern void SD_TxtInit(void);
 extern void SD_Clear(void);
-extern void SD_FsInit(void);
+extern uint8_t SD_FsInit(void);
 extern void SD_SeekPreviousPage(void);
 float SD_GetReadProgerss(void);
+extern void SD_SelectBook(int txtNum);
 
 
 extern void SD_IndexMatch(String txtName);
@@ -28,10 +29,7 @@ class BOOK
     String bookName;
     uint64_t bookSize;
     uint64_t readByte;
-
     uint32_t indexByte;
-
-
     bool BOOK_Init(String txtName);
 
 
