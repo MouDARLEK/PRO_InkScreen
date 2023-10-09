@@ -52,7 +52,7 @@ void SD_IndexStore(uint32_t startByte, bool beginStore)
     txtIndexFile.seek(startByte);
     txtIndexFile.read(INDEX_BUFF, storeBytes);
     
-    Serial.printf("从%d读取%d字节\n",startByte, storeBytes);
+    Serial.printf("从索引文件%d处读取%d字节\n",startByte, storeBytes);
 
   }
   else
@@ -66,7 +66,7 @@ void SD_IndexStore(uint32_t startByte, bool beginStore)
 
     txtIndexFile.seek(startByte);
     txtIndexFile.write(INDEX_BUFF, storeBytes);
-    Serial.printf("从%d写入%d字节\n",startByte, storeBytes);
+    Serial.printf("从索引文件%d处写入%d字节\n",startByte, storeBytes);
     storeBytes = 0;
 
 
@@ -82,7 +82,9 @@ extern void SD_IndexRecord(void)
 {
   if(BOOK_OPEN.readByte >= BOOK_OPEN.bookSize)
   {
-    BOOK_OPEN.readByte = BOOK_OPEN.bookSize;
+    Serial.printf("索引记录字节数有误%llu\n", BOOK_OPEN.readByte);
+    return;
+    // BOOK_OPEN.readByte = BOOK_OPEN.bookSize;
   }
   SD_IndexStore(BOOK_OPEN.indexByte + 40, true);
   SD_IndexWrite(String(BOOK_OPEN.readByte), BOOK_OPEN.indexByte + 30, 10);
@@ -206,7 +208,8 @@ bool BOOK::BOOK_Init(String txtName)
   if(txtFile)
   {
     Serial.printf("文本读取成功\n");
-    txtFile.seek(BOOK_OPEN.readByte, SeekSet); 
+    Serial.printf("索引移至%llu字节\n", BOOK_OPEN.readByte);
+    txtFile.seek(BOOK_OPEN.readByte); 
     this->bookSize = txtFile.size();
     return true;
   }
@@ -216,6 +219,11 @@ bool BOOK::BOOK_Init(String txtName)
     return false;
   }
 
+}
+
+extern void SD_CloseBook(void)
+{
+  txtFile.close();
 }
 
 extern uint8_t SD_FsInit(void)
@@ -450,7 +458,7 @@ extern void SD_GetOnePage(void)
   EPD_TxtOnePage(txtPage); //显示一页txt
   BOOK_OPEN.readByte = txtFile.position();
   SD_IndexRecord();
-  Serial.printf("txt位置:%d\n", BOOK_OPEN.readByte);
+  Serial.printf("txt位置:%llu\n", BOOK_OPEN.readByte);
   // txtFile.close();
    
 }

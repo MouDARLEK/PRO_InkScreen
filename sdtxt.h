@@ -10,6 +10,7 @@ int8_t getCharLength(char zf);
 extern void SD_GetOnePage(void);
 extern void SD_TxtInit(void);
 extern void SD_Clear(void);
+extern void SD_CloseBook(void);
 extern uint8_t SD_FsInit(void);
 extern void SD_SeekPreviousPage(void);
 float SD_GetReadProgerss(void);

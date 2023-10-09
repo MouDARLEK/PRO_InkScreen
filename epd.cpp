@@ -61,20 +61,26 @@ extern void EPD_ChineseTest(void)
 //
 extern void EPD_GlobalInit(void)
 {
-  // EPD_Driver epdGlobal(eScreen_EPD_266, boardESP32DevKitC_EXT3);
+
   epdGlobal.COG_initial();
-  // epdGlobal.globalUpdate(IMG_BW_BUFFER, IMG_RED_BUFFER);
-  // delay(5);
   epdGlobal.globalUpdate(IMG_BW1_BUFFER, IMG_RED1_BUFFER);
-  delay(5);
-  // epdGlobal.globalUpdate(IMG_RED2_BUFFER, IMG_BW2_BUFFER);
-  // Turn off CoG
   epdGlobal.COG_powerOff();
 
 }
 
+extern void EPD_ShowSleepPic(void)
+{
+  hspi.end();
+  EPD_GlobalInit();
+  EPD_Init();
+  EPD_ChineseInit();
+  SD_Init();
+}
 
-
+extern void EPD_ShowLogSign(void)
+{
+  EPD_LineUpdate(4, String("Serial2 is recording...!!(*o*)!!"));
+}
 
 extern void EPD_Init(void)
 {
@@ -240,14 +246,14 @@ extern void EPD_ReadProgressTXT(float readPercent)
 extern void EPD_LineUpdate(uint8_t lineNum, String lineString) 
 {
   const char *strContent = lineString.c_str();                           
-  // uint16_t strLen = u8g2Fonts.getUTF8Width(strContent);         
-  // uint16_t strX = (display.width() / 2) - (strLen / 2);           //计算字符居中的X坐标
+  uint16_t strLen = u8g2Fonts.getUTF8Width(strContent);         
+  uint16_t strX = (display.width() / 2) - (strLen / 2);           //计算字符居中的X坐标
   display.setPartialWindow(0, lineNum * 16, display.width(), 16);   
   display.firstPage();
   display.nextPage();
   do
   {
-  u8g2Fonts.setCursor(30, lineNum * 16 + 13);
+  u8g2Fonts.setCursor(strX, lineNum * 16 + 13);
   u8g2Fonts.print(strContent);
   }
   while (display.nextPage());

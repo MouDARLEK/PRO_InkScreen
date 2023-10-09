@@ -31,7 +31,11 @@ extern void KEY_Init(void);
 extern void KEY_Read(void);
 extern void KEY_DirMode(void);
 extern void KEY_ReadMode(void);
+extern void KEY_LogMode(void);
 extern void KEY_ModeDetect(void);
+
+extern void UART2_Init(void);
+void serialEvent2(void);
 
 extern void TIMER_Init(void);
 

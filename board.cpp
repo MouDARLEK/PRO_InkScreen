@@ -4,6 +4,8 @@
 #include "epd.h"
 #include "sdtxt.h"
 
+#include "log.h"
+
 
 #define LED1 2
 #define ADC_POWER 4 
@@ -20,12 +22,16 @@ typedef enum
   SLEEP_MODE
 }DEVICE_MODE;
 
-
 DEVICE_MODE deviceMode =  DIRECTORY_MODE;
 DEVICE_MODE deviceLastMode =  DEFAULT_MODE;
 
 
+bool KEY_SLEEP_FLAG = true;
+bool SLEEP_ONCE_FLAG = false;
+
+
 hw_timer_t * timer = NULL;
+
 
 KEY KEY_LEFT(KEY_L, KEY_Event);
 KEY KEY_RIGHT(KEY_R, KEY_Event);
@@ -33,13 +39,43 @@ KEY KEY_MIDDLE(KEY_M, KEY_Event);
 
 static float BATTERT_CONVERT_NUM = 0.004549; //= vol/4095*3.3/(1/(4.7+1))
 
+String SERIAL2_BUFF = {};
+
+void serialEvent2(void)
+{
+  // SERIAL2_BUFF.clear();
+  while(Serial2.available())
+  {
+    SERIAL2_BUFF += (char)Serial2.read();
+  }
+  deviceMode = LOG_MODE;
 
 
+}
+
+extern void UART2_Init(void)
+{
+  Serial2.begin(115200);
+  Serial2.printf("SERIAL2 INIT SUCCESS!\n");
+}
 
 void TIMER_Event(void)
 {
-  static int timerCounter = 0;
+  static uint32_t timerCounter = 0;
   LED_Blink();
+  timerCounter ++;
+  if(KEY_SLEEP_FLAG == false)
+  {
+    KEY_SLEEP_FLAG = true;
+    timerCounter = 0;
+  }
+
+  if(timerCounter >= 90 && (!SLEEP_ONCE_FLAG) && (deviceMode != LOG_MODE))
+  {
+    deviceMode = SLEEP_MODE;
+    SLEEP_ONCE_FLAG = true;
+  }
+
 }
 
 extern void TIMER_Init(void)
@@ -105,18 +141,21 @@ void KEY_Event(void)
   {
     KEY_LEFT.keyPressTimes ++;
     KEY_LEFT.keyPressed = true;
+    KEY_SLEEP_FLAG = false;
   }
 
   if(digitalRead(KEY_RIGHT.KEY_PIN) == LOW)
   {
     KEY_RIGHT.keyPressTimes ++;
     KEY_RIGHT.keyPressed = true;
+    KEY_SLEEP_FLAG = false;
   }
 
   if(digitalRead(KEY_MIDDLE.KEY_PIN) == LOW)
   {
     KEY_MIDDLE.keyPressTimes ++;
     KEY_MIDDLE.keyPressed = true;
+    KEY_SLEEP_FLAG = false;
   }
 }
 
@@ -162,6 +201,7 @@ extern void KEY_ReadMode(void)
   if(KEY_MIDDLE.keyPressed == true )
   {
     deviceMode = DIRECTORY_MODE;
+    KEY_MIDDLE.keyPressed == false;
   }
 
 
@@ -173,10 +213,12 @@ extern void KEY_DirMode(void)
   static uint8_t txtNum = 0;
   if(deviceMode != deviceLastMode)
   {
+    SD_CloseBook();
     txtNum = SD_FsInit();
     KEY_ClearAll();
     EPD_FingerArrow(1);
     deviceLastMode = deviceMode;
+    dirPointer = 0;
   }
 
   if(txtNum > 8)//最多显示八本
@@ -208,12 +250,67 @@ extern void KEY_DirMode(void)
   {
     SD_SelectBook(dirPointer);
     deviceMode = READ_MODE;
+    KEY_MIDDLE.keyPressed == false;
   }
   
 }
 
+extern void KEY_SleepMode(void)
+{
+  if(deviceMode != deviceLastMode)
+  {
+    Serial.printf("进入睡眠模式\n");
+    SD_CloseBook();
+    EPD_ShowSleepPic();
+    KEY_ClearAll();
+    deviceLastMode = deviceMode;
+    
+  }
+
+  if(KEY_SLEEP_FLAG == false)
+  {
+    deviceMode = DIRECTORY_MODE;
+    Serial.printf("退出睡眠模式\n");
+  }
+
+}
+
+extern void KEY_LogMode(void)
+{
+  if(deviceMode != deviceLastMode)
+  {
+    Serial.printf("进入日志模式\n");
+    EPD_ShowLogSign();
+    SD_CloseBook();
+    KEY_ClearAll();
+    deviceLastMode = deviceMode;
+
+  }
+  
+
+  if(KEY_MIDDLE.keyPressed == true )
+  {
+    deviceMode = DIRECTORY_MODE;
+    KEY_MIDDLE.keyPressed == false;
+  }
+
+  if(SERIAL2_BUFF.length() != 0)
+  {
+    Serial.printf("日志接收:%s %d\n", SERIAL2_BUFF.c_str(), SERIAL2_BUFF.length());
+    LOG_Output("%s", SERIAL2_BUFF.c_str());
+    SERIAL2_BUFF.clear();
+
+  }
+  
+  
+
+
+}
+
+
 extern void KEY_ModeDetect(void)
 {
+  // Serial.printf("mode:%d\n", deviceMode);
   if(deviceMode == DIRECTORY_MODE)
   {
     KEY_DirMode();
@@ -223,6 +320,17 @@ extern void KEY_ModeDetect(void)
   {
     KEY_ReadMode();
   }
+
+  if(deviceMode == SLEEP_MODE)
+  {
+    KEY_SleepMode();
+  }
+
+  if(deviceMode == LOG_MODE)
+  {
+    KEY_LogMode();
+  }
+
 }
 
 
@@ -230,15 +338,12 @@ extern void KEY_Read(void)
 {
   if(KEY_LEFT.keyPressed == true && KEY_LEFT.keyPressTimes <= 1)
   {
- 
-    SD_TxtInit();
-    SD_GetOnePage();
+
     KEY_LEFT.keyPressed = false;
   }
   else if(KEY_LEFT.keyPressed == true)
   {
 
-    SD_GetOnePage();
     KEY_LEFT.keyPressed = false;
     
   }
@@ -246,14 +351,12 @@ extern void KEY_Read(void)
   if(KEY_RIGHT.keyPressed == true )
   {
     KEY_RIGHT.keyPressed = false;
-    SD_SeekPreviousPage();
-    SD_GetOnePage();
+
 
   }
 
   if(KEY_MIDDLE.keyPressed == true )
   {
-    EPD_FingerArrow(KEY_MIDDLE.keyPressTimes);
     KEY_LEFT.keyPressTimes = 0;
     KEY_RIGHT.keyPressTimes = 0; 
     KEY_MIDDLE.keyPressed = false;

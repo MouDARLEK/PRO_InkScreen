@@ -9,6 +9,7 @@ void setup()
   LED_Init();
   TIMER_Init();
   Serial.begin(115200);
+  UART2_Init();
   
   // EPD_GlobalInit();
 
@@ -21,9 +22,6 @@ void setup()
 
   KEY_Init();
   SD_Init();
-
-  
-
 
 }
 
@@ -39,12 +37,6 @@ void loop()
   
   if(loopTimes % 200 == 0)
   {
-    // KEY_Read();
-  }
-
-  if(loopTimes % (200*180) == 0)
-  {
-
   }
 
   if(loopTimes % (200*600) == 0)
