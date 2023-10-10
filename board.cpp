@@ -28,6 +28,7 @@ DEVICE_MODE deviceLastMode =  DEFAULT_MODE;
 
 bool KEY_SLEEP_FLAG = true;
 bool SLEEP_ONCE_FLAG = false;
+bool BAN_LOG_FLAG = true;
 
 
 hw_timer_t * timer = NULL;
@@ -37,7 +38,8 @@ KEY KEY_LEFT(KEY_L, KEY_Event);
 KEY KEY_RIGHT(KEY_R, KEY_Event);
 KEY KEY_MIDDLE(KEY_M, KEY_Event);
 
-static float BATTERT_CONVERT_NUM = 0.004549; //= vol/4095*3.3/(1/(4.7+1))
+// static float BATTERT_CONVERT_NUM = 0.004549; //= vol/4095*3.3/(1/(4.7+1))
+static float BATTERT_CONVERT_NUM = 0.005488; //= vol/4095*3.3/(0.91/(4.7+0.91))
 
 String SERIAL2_BUFF = {};
 
@@ -47,6 +49,11 @@ void serialEvent2(void)
   while(Serial2.available())
   {
     SERIAL2_BUFF += (char)Serial2.read();
+  }
+  if(BAN_LOG_FLAG)
+  {
+    return;
+
   }
   deviceMode = LOG_MODE;
 
@@ -61,16 +68,26 @@ extern void UART2_Init(void)
 
 void TIMER_Event(void)
 {
+  static uint32_t timerSleepCounter = 0;
   static uint32_t timerCounter = 0;
-  LED_Blink();
+  
+  timerSleepCounter ++;
   timerCounter ++;
+
+  LED_Blink();
+
+  if(timerCounter >= 2)
+  {
+    BAN_LOG_FLAG = false;
+  }
+
   if(KEY_SLEEP_FLAG == false)
   {
     KEY_SLEEP_FLAG = true;
-    timerCounter = 0;
+    timerSleepCounter = 0;
   }
 
-  if(timerCounter >= 90 && (!SLEEP_ONCE_FLAG) && (deviceMode != LOG_MODE))
+  if(timerSleepCounter >= 90 && (!SLEEP_ONCE_FLAG) && (deviceMode != LOG_MODE))
   {
     deviceMode = SLEEP_MODE;
     SLEEP_ONCE_FLAG = true;
@@ -296,7 +313,7 @@ extern void KEY_LogMode(void)
 
   if(SERIAL2_BUFF.length() != 0)
   {
-    Serial.printf("日志接收:%s %d\n", SERIAL2_BUFF.c_str(), SERIAL2_BUFF.length());
+    Serial.printf("日志接收:%s 长度%d\n", SERIAL2_BUFF.c_str(), SERIAL2_BUFF.length());
     LOG_Output("%s", SERIAL2_BUFF.c_str());
     SERIAL2_BUFF.clear();
 
