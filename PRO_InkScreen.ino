@@ -11,8 +11,9 @@ void setup()
   Serial.begin(115200);
   UART2_Init();
   
-  // EPD_GlobalInit();
 
+  // EPD_GlobalInit();
+  // delay(2000);
 
   EPD_Init();
   // EPD_Test();

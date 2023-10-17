@@ -1,0 +1,7 @@
+GxEPD2
+GxEPD
+Adafruit_BusIO
+Adafruit_GFX_Library
+
+
+

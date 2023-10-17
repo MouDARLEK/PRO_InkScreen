@@ -52,6 +52,7 @@ void serialEvent2(void)
   }
   if(BAN_LOG_FLAG)
   {
+    SERIAL2_BUFF.clear();
     return;
 
   }
@@ -76,9 +77,14 @@ void TIMER_Event(void)
 
   LED_Blink();
 
-  if(timerCounter >= 2)
+  if(timerCounter % 2 == 0 )
   {
-    BAN_LOG_FLAG = false;
+    if(KEY_MIDDLE.keyPressTimes > 2)
+    {
+      BAN_LOG_FLAG = false;
+    }
+    
+    KEY_MIDDLE.keyPressTimes = 0;
   }
 
   if(KEY_SLEEP_FLAG == false)
@@ -327,7 +333,7 @@ extern void KEY_LogMode(void)
 
 extern void KEY_ModeDetect(void)
 {
-  // Serial.printf("mode:%d\n", deviceMode);
+  // Serial.printf("mode:%d keym_p:%d ban:%d\n", deviceMode, KEY_MIDDLE.keyPressTimes, BAN_LOG_FLAG);
   if(deviceMode == DIRECTORY_MODE)
   {
     KEY_DirMode();

@@ -15,8 +15,8 @@
 #define IMG_BW1_BUFFER        (uint8_t *) & gImage_itachi
 #define IMG_RED1_BUFFER        (uint8_t *) & gImage_itachi_red
 
-#define IMG_BW2_BUFFER        (uint8_t *) & gImage_suolong
-#define IMG_RED2_BUFFER        (uint8_t *) & gImage_suolong_red
+#define IMG_BW2_BUFFER        (uint8_t *) & gImage_richang
+#define IMG_RED2_BUFFER        (uint8_t *) & gImage_richang_red
 
 #define ICON_SUNSHIN         (uint8_t *) & icon_sunshine
 #define ICON_ARROW         (uint8_t *) & icon_arrow
